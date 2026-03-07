@@ -304,13 +304,19 @@ const Dashboard: React.FC<{
   };
 
   const handleRetryWithKey = () => {
-      if (!manualKeyInput.trim()) {
+      const key = manualKeyInput.trim();
+      if (!key) {
           setNotification({ message: "Por favor, insira uma chave válida.", type: 'error' });
+          return;
+      }
+
+      if (!key.startsWith("AIza")) {
+          setNotification({ message: "A chave parece inválida. Ela deve começar com 'AIza'.", type: 'error' });
           return;
       }
       
       // Salva a chave e fecha o modal
-      localStorage.setItem('cv_custom_api_key', manualKeyInput.trim());
+      localStorage.setItem('cv_custom_api_key', key);
       setShowApiKeyModal(false);
       setManualKeyInput('');
       
@@ -360,14 +366,17 @@ const Dashboard: React.FC<{
           });
 
           // LÓGICA ROBUSTA DE RECUPERAÇÃO DE CHAVE
+          // 1. Tenta LocalStorage (definido pelo usuário nas Configurações)
           apiKey = localStorage.getItem('cv_custom_api_key');
           
+          // 2. Tenta Variável de Ambiente Client-Side (NEXT_PUBLIC_...)
+          // Em builds estáticos (Hostinger), isso é "injetado" no momento do build.
           if (!apiKey) {
               apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY || null;
           }
           
           // Debug para Hostinger
-          console.log("Debug API Key Source:", apiKey ? (localStorage.getItem('cv_custom_api_key') ? "Manual (LocalStorage)" : "Ambiente") : "Nenhuma");
+          console.log("Debug API Key Source:", apiKey ? (localStorage.getItem('cv_custom_api_key') ? "Manual (LocalStorage)" : "Ambiente (Build Time)") : "Nenhuma");
 
           if (!apiKey) {
              if (window.aistudio) {
@@ -441,14 +450,17 @@ const Dashboard: React.FC<{
           setUploadProgress(0);
           console.error("Erro na importação:", error);
           
+          const isManualKey = !!localStorage.getItem('cv_custom_api_key');
           const maskedKey = apiKey ? (apiKey.length > 10 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "Inválida") : "Nenhuma";
-          console.error(`[Dashboard] Chave usada na falha: ${maskedKey} (Origem: ${localStorage.getItem('cv_custom_api_key') ? "Manual" : "Ambiente"})`);
+          console.error(`[Dashboard] Chave usada na falha: ${maskedKey} (Origem: ${isManualKey ? "Manual" : "Ambiente"})`);
 
           let errorMsg = error.message || "Erro ao processar o arquivo.";
           let isApiCriticalError = false;
           
           if (errorMsg.includes("API Key") || errorMsg.includes("Chave de API")) {
-              errorMsg = "Chave de API inválida ou não configurada.";
+              errorMsg = isManualKey 
+                  ? "A chave de API manual que você inseriu é inválida. Tente gerar uma nova." 
+                  : "A chave de API do servidor é inválida ou não foi configurada no build.";
               isApiCriticalError = true;
           }
           else if (errorMsg.includes("API_NOT_ENABLED") || errorMsg.includes("User has not enabled") || errorMsg.includes("consumer has not enabled")) {
@@ -506,18 +518,19 @@ const Dashboard: React.FC<{
                 </div>
                 
                 <p className="text-stone-300 text-sm mb-4 leading-relaxed">
-                    A chave de API configurada no servidor parece estar inválida ou sem permissão (Erro 404/API Not Enabled).
+                    Não foi possível detectar uma chave de API válida no sistema. Isso é comum em alguns ambientes de hospedagem.
                 </p>
-                <p className="text-stone-400 text-xs mb-4">
-                    Para continuar agora mesmo, insira uma chave válida abaixo. Ela será salva no seu navegador.
+                <p className="text-stone-400 text-xs mb-4 bg-red-900/20 p-3 rounded-lg border border-red-900/30">
+                    <strong className="text-red-400 block mb-1">Ação Necessária:</strong>
+                    Para que a Inteligência Artificial funcione, você precisa inserir sua chave do Google Gemini abaixo. Ela será salva apenas no seu navegador.
                 </p>
 
                 <div className="space-y-3">
                     <input 
-                        type="text" 
+                        type="password" 
                         value={manualKeyInput}
                         onChange={(e) => setManualKeyInput(e.target.value)}
-                        placeholder="Cole sua chave API aqui (AIzaSy...)"
+                        placeholder="Cole sua chave API aqui (começa com AIza...)"
                         className="w-full bg-black/50 border border-red-900/30 rounded-lg p-3 text-white focus:border-red-500 focus:outline-none text-sm font-mono"
                     />
                     
