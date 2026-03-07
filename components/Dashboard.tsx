@@ -324,6 +324,8 @@ const Dashboard: React.FC<{
         });
       }, 500);
 
+      let apiKey: string | null = null;
+
       try {
           const base64Data = await new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
@@ -340,7 +342,7 @@ const Dashboard: React.FC<{
           // 1. Tenta LocalStorage (definido pelo usuário nas Configurações)
           // 2. Tenta Variável de Ambiente (NEXT_PUBLIC_...)
           // 3. Tenta Variável de Ambiente Legada (API_KEY)
-          let apiKey = localStorage.getItem('cv_custom_api_key');
+          apiKey = localStorage.getItem('cv_custom_api_key');
           
           if (!apiKey) {
               apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY || null;
@@ -425,6 +427,10 @@ const Dashboard: React.FC<{
           setUploadProgress(0);
           console.error("Erro na importação:", error);
           
+          // Debug da chave usada no momento do erro
+          const maskedKey = apiKey ? (apiKey.length > 10 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "Inválida") : "Nenhuma";
+          console.error(`[Dashboard] Chave usada na falha: ${maskedKey} (Origem: ${localStorage.getItem('cv_custom_api_key') ? "Manual" : "Ambiente"})`);
+
           let errorMsg = error.message || "Erro ao processar o arquivo.";
           
           // Tratamento de erros conhecidos com mensagens amigáveis
@@ -432,7 +438,7 @@ const Dashboard: React.FC<{
               errorMsg = "Chave de API inválida ou não configurada. Vá em Configurações > Conexões API e insira sua chave.";
           }
           else if (errorMsg.includes("API_NOT_ENABLED") || errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
-              errorMsg = "A API 'Google Generative AI' não está habilitada no projeto desta chave. Acesse o Google Cloud Console e ative-a.";
+              errorMsg = "ERRO DE CONFIGURAÇÃO: A API do Google não está ativa na chave do servidor. Vá em 'Configurações' e insira uma chave válida manualmente.";
           }
           else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
               errorMsg = "Limite de uso da API excedido (Quota). Tente novamente em alguns minutos.";

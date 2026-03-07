@@ -52,6 +52,14 @@ Este erro significa que a chave de API é válida, mas o serviço de IA não foi
 5.  Clique em **Ativar**.
 6.  Aguarde alguns minutos e tente novamente no CVFacil.NG.
 
+**SOLUÇÃO IMEDIATA (Se o erro persistir):**
+Se você tem certeza que a API está ativa, mas o erro continua na Hostinger, é provável que a variável de ambiente não esteja sendo lida corretamente.
+1.  Abra o aplicativo CVFacil.NG.
+2.  Vá em **Configurações > Conexões API**.
+3.  Clique em **"Obter chave no Google AI Studio"** para gerar uma nova chave (ou copie a sua existente).
+4.  Cole a chave no campo **"Chave de API Personalizada"** e clique em Salvar.
+5.  O aplicativo passará a usar essa chave localmente, ignorando qualquer problema do servidor.
+
 ### Erro: "Chave de API Inválida" (Erro 400)
 A chave copiada está incorreta ou incompleta. Verifique se não há espaços extras no início ou fim.
 
