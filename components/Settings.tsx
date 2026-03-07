@@ -159,8 +159,16 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
         console.log("Gemini Response:", text);
     } catch (error: any) {
         console.error("Erro teste IA:", error);
-        setNotification({ message: `Falha no teste: ${error.message}`, type: 'error' });
-        setAiTestResult(`Erro: ${error.message}`);
+        let errorMsg = error.message;
+        
+        if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
+             errorMsg = "Erro 404: A API 'Google Generative AI' não está habilitada no projeto desta chave. Ative-a no Google Cloud Console.";
+        } else if (errorMsg.includes("400") || errorMsg.includes("API key")) {
+             errorMsg = "Erro 400: Chave de API inválida.";
+        }
+
+        setNotification({ message: `Falha no teste: ${errorMsg}`, type: 'error' });
+        setAiTestResult(`Erro: ${errorMsg}`);
     } finally {
         setIsTestingAi(false);
     }

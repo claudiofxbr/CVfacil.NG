@@ -41,6 +41,20 @@ O sistema agora tenta automaticamente os seguintes modelos, nesta ordem, para ga
 4.  `gemini-1.5-flash-latest` (Fallback)
 5.  `gemini-pro` (Legado, última tentativa)
 
+## 5. Solução de Problemas Comuns
+
+### Erro: "A API 'Google Generative AI' não está habilitada..." (Erro 404)
+Este erro significa que a chave de API é válida, mas o serviço de IA não foi ativado no projeto do Google Cloud.
+1.  Acesse o [Google Cloud Console](https://console.cloud.google.com/).
+2.  Selecione o projeto associado à sua chave.
+3.  No menu, vá em **APIs e Serviços > Biblioteca**.
+4.  Pesquise por **"Google Generative AI API"**.
+5.  Clique em **Ativar**.
+6.  Aguarde alguns minutos e tente novamente no CVFacil.NG.
+
+### Erro: "Chave de API Inválida" (Erro 400)
+A chave copiada está incorreta ou incompleta. Verifique se não há espaços extras no início ou fim.
+
 ---
 **Resumo da Correção Aplicada:**
 1.  **Fallback Robusto:** O sistema agora tenta 5 modelos diferentes antes de falhar.

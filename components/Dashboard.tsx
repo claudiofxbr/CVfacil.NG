@@ -431,8 +431,8 @@ const Dashboard: React.FC<{
           if (errorMsg.includes("API Key") || errorMsg.includes("Chave de API")) {
               errorMsg = "Chave de API inválida ou não configurada. Vá em Configurações > Conexões API e insira sua chave.";
           }
-          else if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
-              errorMsg = "Modelo de IA indisponível. Verifique se a 'Google Generative AI API' está ativada no seu console Google Cloud.";
+          else if (errorMsg.includes("API_NOT_ENABLED") || errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
+              errorMsg = "A API 'Google Generative AI' não está habilitada no projeto desta chave. Acesse o Google Cloud Console e ative-a.";
           }
           else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
               errorMsg = "Limite de uso da API excedido (Quota). Tente novamente em alguns minutos.";

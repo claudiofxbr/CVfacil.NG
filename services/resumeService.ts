@@ -125,15 +125,27 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
 
     const ai = new GoogleGenAI({ apiKey });
     
+    // Log parcial da chave para debug (segurança: mostra apenas os primeiros 4 e últimos 4 caracteres)
+    const maskedKey = apiKey.length > 10 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "Inválida";
+    console.log(`[ResumeService] Iniciando IA com chave: ${maskedKey}`);
+
     // Lista de modelos para tentar (Fallback Strategy)
     // Prioriza o modelo mais rápido e barato (1.5 Flash), depois tenta outros
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-pro'];
+    const modelsToTry = [
+        'gemini-1.5-flash', 
+        'gemini-1.5-flash-8b', // Novo modelo leve
+        'gemini-1.5-pro', 
+        'gemini-2.0-flash-exp', 
+        'gemini-1.5-flash-latest', 
+        'gemini-pro'
+    ];
     
     let lastError;
+    let allErrorsAre404 = true;
 
     for (const modelName of modelsToTry) {
         try {
-            console.log(`Tentando modelo: ${modelName}...`);
+            console.log(`[ResumeService] Tentando modelo: ${modelName}...`);
             const response = await ai.models.generateContent({
                 model: modelName,
                 contents: {
@@ -161,14 +173,25 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
             return JSON.parse(cleanJson);
 
         } catch (error: any) {
-            console.warn(`Falha com modelo ${modelName}:`, error);
+            console.warn(`[ResumeService] Falha com modelo ${modelName}:`, error);
             lastError = error;
+            
+            // Verifica se o erro NÃO é 404
+            if (!error.message?.includes('404') && !error.message?.includes('NOT_FOUND')) {
+                allErrorsAre404 = false;
+            }
+
             // Se o erro for de chave inválida (400) ou falta de permissão, não adianta tentar outros modelos
             if (error.message?.includes('400') || error.message?.includes('API key') || error.message?.includes('PERMISSION_DENIED')) {
                 throw new Error(`Chave de API inválida ou sem permissão (${modelName}). Verifique no Google Cloud.`);
             }
             // Continua para o próximo modelo se for 404, 429, 500, etc.
         }
+    }
+
+    // Se todos os erros foram 404, significa que a API provavelmente não está habilitada no projeto
+    if (allErrorsAre404 && lastError) {
+        throw new Error("API_NOT_ENABLED: A API 'Google Generative AI' não está ativada no projeto desta chave. Acesse o Google Cloud Console e ative-a.");
     }
 
     throw lastError || new Error("Falha ao processar com todos os modelos de IA disponíveis. Verifique sua conexão e chave de API.");
