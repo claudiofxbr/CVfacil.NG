@@ -509,6 +509,10 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
                      </label>
                      <p className="text-xs text-stone-400 mb-3">
                          Se a chave configurada no servidor (Hostinger) não estiver funcionando, insira sua chave manualmente aqui. Ela será salva apenas no seu navegador.
+                         <br/>
+                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 mt-1">
+                            Obter chave no Google AI Studio <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                         </a>
                      </p>
                      <div className="flex gap-2">
                          <input 

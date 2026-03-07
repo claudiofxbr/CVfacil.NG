@@ -424,19 +424,28 @@ const Dashboard: React.FC<{
           clearInterval(progressInterval);
           setUploadProgress(0);
           console.error("Erro na importação:", error);
-          let errorMsg = "Erro ao processar o arquivo.";
           
-          if (error.message?.includes("API Key is missing") || error.message?.includes("Chave de API")) {
-              errorMsg = "Erro: Chave de API não configurada. Vá em Configurações > Conexões API.";
+          let errorMsg = error.message || "Erro ao processar o arquivo.";
+          
+          // Tratamento de erros conhecidos com mensagens amigáveis
+          if (errorMsg.includes("API Key") || errorMsg.includes("Chave de API")) {
+              errorMsg = "Chave de API inválida ou não configurada. Vá em Configurações > Conexões API e insira sua chave.";
           }
-          else if (error.message?.includes("404") || error.message?.includes("NOT_FOUND")) {
-              errorMsg = "Erro: Modelos de IA indisponíveis para sua chave.";
+          else if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
+              errorMsg = "Modelo de IA indisponível. Verifique se a 'Google Generative AI API' está ativada no seu console Google Cloud.";
           }
-          else if (error.message?.includes("400") || error.message?.includes("INVALID_ARGUMENT")) {
-              errorMsg = "Erro: Chave de API inválida.";
+          else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+              errorMsg = "Limite de uso da API excedido (Quota). Tente novamente em alguns minutos.";
           }
-          else if (error.message?.includes("fetch")) errorMsg = "Erro de conexão. Verifique sua internet.";
-          else if (error instanceof SyntaxError) errorMsg = "Erro ao processar dados da IA (JSON inválido).";
+          else if (errorMsg.includes("400") || errorMsg.includes("INVALID_ARGUMENT")) {
+              errorMsg = "A IA não conseguiu processar este PDF. Tente um arquivo diferente ou verifique se é um PDF de texto selecionável.";
+          }
+          else if (errorMsg.includes("fetch") || errorMsg.includes("network")) {
+              errorMsg = "Erro de conexão. Verifique sua internet e tente novamente.";
+          }
+          else if (error instanceof SyntaxError) {
+              errorMsg = "A IA retornou dados inválidos. Tente novamente.";
+          }
           
           setNotification({ message: errorMsg, type: 'error' });
       } finally {

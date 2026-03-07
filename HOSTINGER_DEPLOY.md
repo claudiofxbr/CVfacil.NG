@@ -35,12 +35,14 @@ O aplicativo passará a usar essa chave salva no seu navegador, ignorando qualqu
 ## 4. Modelos de IA
 
 O sistema agora tenta automaticamente os seguintes modelos, nesta ordem, para garantir disponibilidade:
-1.  `gemini-1.5-flash` (Padrão, mais estável)
-2.  `gemini-2.0-flash-exp` (Experimental, mais inteligente)
-3.  `gemini-1.5-flash-latest` (Fallback)
+1.  `gemini-1.5-flash` (Padrão, rápido e barato)
+2.  `gemini-1.5-pro` (Mais capaz, usado se o Flash falhar)
+3.  `gemini-2.0-flash-exp` (Experimental)
+4.  `gemini-1.5-flash-latest` (Fallback)
+5.  `gemini-pro` (Legado, última tentativa)
 
 ---
 **Resumo da Correção Aplicada:**
-1.  **Fallback de Modelos:** O sistema agora tenta 3 modelos diferentes antes de falhar.
-2.  **Chave Manual:** Adicionada opção em "Configurações" para inserir a chave manualmente se a variável de ambiente falhar.
-3.  **Logs de Debug:** Adicionados logs no console (F12) para identificar se a chave está sendo carregada corretamente.
+1.  **Fallback Robusto:** O sistema agora tenta 5 modelos diferentes antes de falhar.
+2.  **Chave Manual:** Adicionada opção em "Configurações" com link direto para obter a chave.
+3.  **Mensagens de Erro Claras:** O sistema agora informa exatamente se o problema é "Chave Inválida", "Modelo Indisponível (404)" ou "Quota Excedida (429)".

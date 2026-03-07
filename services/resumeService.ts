@@ -126,8 +126,8 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
     const ai = new GoogleGenAI({ apiKey });
     
     // Lista de modelos para tentar (Fallback Strategy)
-    // Prioriza o modelo mais estável (1.5 Flash)
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-latest'];
+    // Prioriza o modelo mais rápido e barato (1.5 Flash), depois tenta outros
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-pro'];
     
     let lastError;
 
@@ -163,15 +163,15 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
         } catch (error: any) {
             console.warn(`Falha com modelo ${modelName}:`, error);
             lastError = error;
-            // Se o erro for de chave inválida (400), não adianta tentar outros modelos
-            if (error.message?.includes('400') || error.message?.includes('API key')) {
-                throw new Error("Chave de API inválida ou expirada.");
+            // Se o erro for de chave inválida (400) ou falta de permissão, não adianta tentar outros modelos
+            if (error.message?.includes('400') || error.message?.includes('API key') || error.message?.includes('PERMISSION_DENIED')) {
+                throw new Error(`Chave de API inválida ou sem permissão (${modelName}). Verifique no Google Cloud.`);
             }
-            // Continua para o próximo modelo
+            // Continua para o próximo modelo se for 404, 429, 500, etc.
         }
     }
 
-    throw lastError || new Error("Falha ao processar com todos os modelos de IA disponíveis.");
+    throw lastError || new Error("Falha ao processar com todos os modelos de IA disponíveis. Verifique sua conexão e chave de API.");
 };
 
 export const templates: TemplateOption[] = [
