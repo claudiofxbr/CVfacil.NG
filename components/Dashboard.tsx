@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { templates, initialResumeData, generateUUID } from '../services/resumeService';
 import { ResumeData, User } from '../types';
 import ResumePreview from './ResumePreview';
-import { GoogleGenAI, Type, Schema } from "@google/genai";
 
 // Declaração global para evitar erros de TS
 declare global {
@@ -321,7 +320,6 @@ const Dashboard: React.FC<{
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) return prev;
-          // Incremento aleatório para parecer natural
           return prev + Math.floor(Math.random() * 10) + 1;
         });
       }, 500);
@@ -338,116 +336,32 @@ const Dashboard: React.FC<{
               reader.onerror = error => reject(error);
           });
 
-          const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY;
+          // LÓGICA ROBUSTA DE RECUPERAÇÃO DE CHAVE
+          // 1. Tenta LocalStorage (definido pelo usuário nas Configurações)
+          // 2. Tenta Variável de Ambiente (NEXT_PUBLIC_...)
+          // 3. Tenta Variável de Ambiente Legada (API_KEY)
+          let apiKey = localStorage.getItem('cv_custom_api_key');
+          
+          if (!apiKey) {
+              apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY || null;
+          }
           
           // Debug para Hostinger
-          console.log("Debug API Key:", apiKey ? "Configurada (Inicia com " + apiKey.substring(0, 4) + "...)" : "Não encontrada");
+          console.log("Debug API Key Source:", apiKey ? (localStorage.getItem('cv_custom_api_key') ? "Manual (LocalStorage)" : "Ambiente") : "Nenhuma");
 
           if (!apiKey) {
-             // Se estiver no ambiente do AI Studio, pode ser que a chave ainda não tenha sido selecionada
+             // Se estiver no ambiente do AI Studio, tenta abrir o seletor
              if (window.aistudio) {
                 await window.aistudio.openSelectKey();
-             } else {
-                throw new Error("Chave de API não configurada. Verifique as variáveis de ambiente.");
-             }
+                // Tenta pegar novamente (não garantido, mas o usuário pode tentar de novo)
+             } 
+             throw new Error("Chave de API não encontrada. Vá em Configurações e insira sua chave manualmente.");
           }
 
-          const ai = new GoogleGenAI({ apiKey: apiKey || "" });
-          
-          const resumeSchema: Schema = {
-            type: Type.OBJECT,
-            properties: {
-                fullName: { type: Type.STRING },
-                role: { type: Type.STRING },
-                email: { type: Type.STRING },
-                phone: { type: Type.STRING },
-                linkedin: { type: Type.STRING },
-                portfolio: { type: Type.STRING },
-                summary: { type: Type.STRING },
-                experiences: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            role: { type: Type.STRING },
-                            company: { type: Type.STRING },
-                            period: { type: Type.STRING },
-                            description: { type: Type.STRING },
-                        }
-                    }
-                },
-                education: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            degree: { type: Type.STRING },
-                            institution: { type: Type.STRING },
-                            year: { type: Type.STRING },
-                            type: { type: Type.STRING },
-                        }
-                    }
-                },
-                skills: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING },
-                            level: { type: Type.NUMBER }
-                        }
-                    }
-                },
-                languages: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING },
-                            level: { type: Type.STRING }
-                        }
-                    }
-                },
-                hobbies: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                }
-            },
-            required: ["fullName", "role", "summary", "experiences", "education", "skills"]
-          };
-
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp', 
-            contents: {
-                parts: [
-                    { inlineData: { mimeType: 'application/pdf', data: base64Data } },
-                    { text: "Você é um especialista em recrutamento. Analise este currículo em PDF e extraia TODAS as informações para o formato JSON estruturado abaixo. Se um campo não existir no documento, deixe-o vazio ou como array vazio. Não invente informações. Para datas, tente padronizar. Se não houver um resumo profissional explícito, gere um breve resumo com base na experiência listada." }
-                ]
-            },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: resumeSchema
-            }
-          });
-
-          // CORREÇÃO ROBUSTA: Limpar blocos de código Markdown e garantir JSON válido
-          const rawText = response.text || "{}";
-          let cleanJson = rawText.replace(/```json\n?|\n?```/g, "").trim();
-          
-          // Fallback para JSON mal formatado que começa com texto
-          const jsonStartIndex = cleanJson.indexOf('{');
-          const jsonEndIndex = cleanJson.lastIndexOf('}');
-          if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-              cleanJson = cleanJson.substring(jsonStartIndex, jsonEndIndex + 1);
-          }
-
-          let parsedData;
-          try {
-              parsedData = JSON.parse(cleanJson);
-          } catch (e) {
-              console.error("Erro de Parse JSON da IA:", e, "Raw Text:", rawText);
-              throw new Error("A IA retornou um formato inválido. Tente novamente com um PDF mais simples.");
-          }
+          // Chama o serviço centralizado (com fallback de modelos)
+          // Importado dinamicamente para evitar conflitos de SSR se necessário, mas aqui é client-side
+          const { generateResumeFromPDF } = await import('../services/resumeService');
+          const parsedData = await generateResumeFromPDF(base64Data, apiKey);
 
           const newResume: ResumeData = {
               ...initialResumeData,
@@ -492,7 +406,6 @@ const Dashboard: React.FC<{
 
           const newResumesList = [...resumes, newResume];
           
-          // Tentar salvar com tratamento de erro de armazenamento
           try {
              localStorage.setItem('cv_collection_data', JSON.stringify(newResumesList));
              setResumes(newResumesList);
@@ -513,15 +426,16 @@ const Dashboard: React.FC<{
           console.error("Erro na importação:", error);
           let errorMsg = "Erro ao processar o arquivo.";
           
-          if (error.message?.includes("API key")) errorMsg = "Erro: Chave de API não configurada.";
-          else if (error.message?.includes("404") || error.message?.includes("NOT_FOUND") || error.message?.includes("Requested entity was not found")) {
-              errorMsg = "Erro: Modelo de IA indisponível ou Chave Inválida.";
-              if (window.aistudio) {
-                  window.aistudio.openSelectKey();
-              }
+          if (error.message?.includes("API Key is missing") || error.message?.includes("Chave de API")) {
+              errorMsg = "Erro: Chave de API não configurada. Vá em Configurações > Conexões API.";
+          }
+          else if (error.message?.includes("404") || error.message?.includes("NOT_FOUND")) {
+              errorMsg = "Erro: Modelos de IA indisponíveis para sua chave.";
+          }
+          else if (error.message?.includes("400") || error.message?.includes("INVALID_ARGUMENT")) {
+              errorMsg = "Erro: Chave de API inválida.";
           }
           else if (error.message?.includes("fetch")) errorMsg = "Erro de conexão. Verifique sua internet.";
-          else if (error.message?.includes("candidate")) errorMsg = "A IA não conseguiu ler este PDF.";
           else if (error instanceof SyntaxError) errorMsg = "Erro ao processar dados da IA (JSON inválido).";
           
           setNotification({ message: errorMsg, type: 'error' });

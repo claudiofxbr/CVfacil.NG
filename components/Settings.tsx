@@ -84,11 +84,23 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
   // Estados para Teste de IA
   const [isTestingAi, setIsTestingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<string | null>(null);
-  
+  const [customApiKey, setCustomApiKey] = useState('');
+
   // Carregar config salva (se houver)
   useEffect(() => {
-    // GitHub config removed
+    const savedKey = localStorage.getItem('cv_custom_api_key');
+    if (savedKey) setCustomApiKey(savedKey);
   }, []);
+
+  const handleSaveKey = () => {
+      if (customApiKey.trim()) {
+          localStorage.setItem('cv_custom_api_key', customApiKey.trim());
+          setNotification({ message: "Chave API salva localmente! O app usará esta chave.", type: 'success' });
+      } else {
+          localStorage.removeItem('cv_custom_api_key');
+          setNotification({ message: "Chave API personalizada removida. O app tentará usar a do sistema.", type: 'success' });
+      }
+  };
 
   useEffect(() => {
     const currentUser = clients.find(c => c.email.toLowerCase() === userInfo.email.toLowerCase());
@@ -124,19 +136,21 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
     setIsTestingAi(true);
     setAiTestResult(null);
     try {
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY;
+        // Prioridade: LocalStorage > Env Var
+        const apiKey = localStorage.getItem('cv_custom_api_key') || process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY;
+        
         if (!apiKey) {
             if (window.aistudio) {
                 await window.aistudio.openSelectKey();
             } else {
-                throw new Error("API Key não configurada no ambiente.");
+                throw new Error("API Key não configurada. Insira sua chave abaixo.");
             }
         }
 
         const ai = new GoogleGenAI({ apiKey: apiKey || "" });
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: 'Olá, IA! Por favor, responda com uma frase curta confirmando que sua integração com o CVFacil.NG está funcionando e você é o modelo Pro.'
+            model: 'gemini-1.5-flash', // Modelo mais estável para teste
+            contents: 'Olá, IA! Responda "OK".'
         });
 
         const text = response.text;
@@ -488,21 +502,34 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
                     </div>
                  </div>
 
-                 {/* Fix: Removed API Key input UI as per guidelines. API Key must be set in environment variables. */}
-                 
-                 {!process.env.API_KEY && (
-                     <div className="mt-4 p-3 bg-red-900/20 border border-red-900/40 rounded-lg flex gap-3">
-                         <span className="material-symbols-outlined text-red-400">warning</span>
-                         <p className="text-xs text-red-200">
-                             Atenção: A funcionalidade de "Importar PDF com IA" não funcionará. 
-                             Configure a variável de ambiente API_KEY.
-                         </p>
+                 {/* Área de Configuração Manual de Chave (Robustez para Hostinger) */}
+                 <div className="mt-6 p-4 bg-forest-deep border border-forest-border rounded-xl">
+                     <label className="text-xs font-bold text-stone-500 uppercase mb-2 block">
+                         Chave de API Personalizada (Opcional)
+                     </label>
+                     <p className="text-xs text-stone-400 mb-3">
+                         Se a chave configurada no servidor (Hostinger) não estiver funcionando, insira sua chave manualmente aqui. Ela será salva apenas no seu navegador.
+                     </p>
+                     <div className="flex gap-2">
+                         <input 
+                             type="password" 
+                             value={customApiKey}
+                             onChange={(e) => setCustomApiKey(e.target.value)}
+                             placeholder="AIzaSy..."
+                             className="flex-1 bg-forest-surface border border-forest-border rounded-lg p-2 text-white focus:border-primary focus:outline-none text-sm"
+                         />
+                         <button 
+                             onClick={handleSaveKey}
+                             className="px-4 py-2 bg-forest-surface border border-forest-border hover:bg-primary hover:text-white hover:border-primary rounded-lg text-stone-400 transition-all"
+                             title="Salvar Chave"
+                         >
+                             <span className="material-symbols-outlined">save</span>
+                         </button>
                      </div>
-                 )}
+                 </div>
 
                  {/* Botão de Teste da API Gemini (Novo) */}
-                 {process.env.API_KEY && (
-                    <div className="mt-4 border-t border-forest-border pt-4">
+                 <div className="mt-4 border-t border-forest-border pt-4">
                         <button 
                             onClick={handleTestGemini}
                             disabled={isTestingAi}
@@ -513,7 +540,7 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
                             ) : (
                                 <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                             )}
-                            Testar Conexão IA (gemini-2.0-flash-exp)
+                            Testar Conexão IA (gemini-1.5-flash)
                         </button>
                         {aiTestResult && (
                             <div className="mt-3 p-3 bg-forest-deep rounded-lg border border-forest-border">
@@ -522,7 +549,6 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
                             </div>
                         )}
                     </div>
-                 )}
             </div>
 
             {/* GitHub Section Removed */}

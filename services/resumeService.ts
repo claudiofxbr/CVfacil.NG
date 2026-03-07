@@ -1,4 +1,5 @@
 import { ResumeData, TemplateOption } from '../types';
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 
 // Função auxiliar para gerar IDs únicos de forma segura (funciona em HTTP e HTTPS)
 export const generateUUID = () => {
@@ -53,6 +54,124 @@ export const compressImage = (file: File, maxWidth: number = 400): Promise<strin
       };
       reader.onerror = (err) => reject(err);
     });
+};
+
+// --- SERVIÇO DE IA (GEMINI) ---
+
+const RESUME_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+      fullName: { type: Type.STRING },
+      role: { type: Type.STRING },
+      email: { type: Type.STRING },
+      phone: { type: Type.STRING },
+      linkedin: { type: Type.STRING },
+      portfolio: { type: Type.STRING },
+      summary: { type: Type.STRING },
+      experiences: {
+          type: Type.ARRAY,
+          items: {
+              type: Type.OBJECT,
+              properties: {
+                  role: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  period: { type: Type.STRING },
+                  description: { type: Type.STRING },
+              }
+          }
+      },
+      education: {
+          type: Type.ARRAY,
+          items: {
+              type: Type.OBJECT,
+              properties: {
+                  degree: { type: Type.STRING },
+                  institution: { type: Type.STRING },
+                  year: { type: Type.STRING },
+                  type: { type: Type.STRING },
+              }
+          }
+      },
+      skills: {
+          type: Type.ARRAY,
+          items: {
+              type: Type.OBJECT,
+              properties: {
+                  name: { type: Type.STRING },
+                  level: { type: Type.NUMBER }
+              }
+          }
+      },
+      languages: {
+          type: Type.ARRAY,
+          items: {
+              type: Type.OBJECT,
+              properties: {
+                  name: { type: Type.STRING },
+                  level: { type: Type.STRING }
+              }
+          }
+      },
+      hobbies: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+      }
+  },
+  required: ["fullName", "role", "summary", "experiences", "education", "skills"]
+};
+
+export const generateResumeFromPDF = async (base64Data: string, apiKey: string): Promise<any> => {
+    if (!apiKey) throw new Error("API Key is missing");
+
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // Lista de modelos para tentar (Fallback Strategy)
+    // Prioriza o modelo mais estável (1.5 Flash)
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-latest'];
+    
+    let lastError;
+
+    for (const modelName of modelsToTry) {
+        try {
+            console.log(`Tentando modelo: ${modelName}...`);
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: {
+                    parts: [
+                        { inlineData: { mimeType: 'application/pdf', data: base64Data } },
+                        { text: "Você é um especialista em recrutamento. Analise este currículo em PDF e extraia TODAS as informações para o formato JSON estruturado abaixo. Se um campo não existir no documento, deixe-o vazio ou como array vazio. Não invente informações. Para datas, tente padronizar. Se não houver um resumo profissional explícito, gere um breve resumo com base na experiência listada." }
+                    ]
+                },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: RESUME_SCHEMA
+                }
+            });
+
+            const rawText = response.text || "{}";
+            let cleanJson = rawText.replace(/```json\n?|\n?```/g, "").trim();
+            
+            // Fallback para JSON mal formatado que começa com texto
+            const jsonStartIndex = cleanJson.indexOf('{');
+            const jsonEndIndex = cleanJson.lastIndexOf('}');
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                cleanJson = cleanJson.substring(jsonStartIndex, jsonEndIndex + 1);
+            }
+
+            return JSON.parse(cleanJson);
+
+        } catch (error: any) {
+            console.warn(`Falha com modelo ${modelName}:`, error);
+            lastError = error;
+            // Se o erro for de chave inválida (400), não adianta tentar outros modelos
+            if (error.message?.includes('400') || error.message?.includes('API key')) {
+                throw new Error("Chave de API inválida ou expirada.");
+            }
+            // Continua para o próximo modelo
+        }
+    }
+
+    throw lastError || new Error("Falha ao processar com todos os modelos de IA disponíveis.");
 };
 
 export const templates: TemplateOption[] = [

@@ -21,20 +21,26 @@ O erro mais comum é a falta da Chave de API da Google Gemini no ambiente de pro
 
 > **Nota:** Se você usar apenas `API_KEY`, o Next.js pode não expor a variável para o navegador. Use `NEXT_PUBLIC_GEMINI_API_KEY` para garantir.
 
-## 3. Configuração do Repositório (GitHub)
+## 3. Solução Robusta (Nova Abordagem)
 
-Certifique-se de que o Hostinger está configurado para publicar a pasta de saída correta.
-- **Diretório de Publicação (Publish Directory):** `out`
-- **Comando de Build:** `npm run build`
+Se mesmo configurando a variável de ambiente a IA não funcionar (erro "Chave Inválida" ou "Modelo Indisponível"), implementamos uma **solução manual**:
 
-## 4. Solução de Problemas Comuns
+1.  Abra o aplicativo publicado.
+2.  Vá em **Configurações > Conexões API**.
+3.  Insira sua Chave de API (Gemini) no campo "Chave de API Personalizada".
+4.  Clique em Salvar.
 
-*   **Erro 404 na IA:** Verifique se a chave API está correta e se o modelo `gemini-2.0-flash-exp` está disponível para sua conta.
-*   **Imagens quebradas:** Certifique-se de que as imagens estão na pasta `public/` e referenciadas com `/` no início (ex: `/logo.png`).
-*   **Página em Branco:** Verifique o console do navegador (F12) para erros de JavaScript. Geralmente indica falta de configuração de ambiente.
+O aplicativo passará a usar essa chave salva no seu navegador, ignorando qualquer configuração de servidor que possa estar falhando.
+
+## 4. Modelos de IA
+
+O sistema agora tenta automaticamente os seguintes modelos, nesta ordem, para garantir disponibilidade:
+1.  `gemini-1.5-flash` (Padrão, mais estável)
+2.  `gemini-2.0-flash-exp` (Experimental, mais inteligente)
+3.  `gemini-1.5-flash-latest` (Fallback)
 
 ---
 **Resumo da Correção Aplicada:**
-1.  Alterado `next.config.mjs` para `output: 'export'` (compatibilidade total).
-2.  Atualizado modelo de IA para `gemini-2.0-flash-exp` (mais estável e disponível).
-3.  Adicionado este guia.
+1.  **Fallback de Modelos:** O sistema agora tenta 3 modelos diferentes antes de falhar.
+2.  **Chave Manual:** Adicionada opção em "Configurações" para inserir a chave manualmente se a variável de ambiente falhar.
+3.  **Logs de Debug:** Adicionados logs no console (F12) para identificar se a chave está sendo carregada corretamente.
