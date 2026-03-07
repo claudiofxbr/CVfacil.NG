@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { templates, initialResumeData, generateUUID } from '../services/resumeService';
 import { ResumeData, User } from '../types';
 import ResumePreview from './ResumePreview';
+import { GoogleGenAI } from "@google/genai";
 
 // Declaração global para evitar erros de TS
 declare global {
@@ -303,7 +304,7 @@ const Dashboard: React.FC<{
     }
   };
 
-  const handleRetryWithKey = () => {
+  const handleRetryWithKey = async () => {
       const key = manualKeyInput.trim();
       if (!key) {
           setNotification({ message: "Por favor, insira uma chave válida.", type: 'error' });
@@ -314,17 +315,43 @@ const Dashboard: React.FC<{
           setNotification({ message: "A chave parece inválida. Ela deve começar com 'AIza'.", type: 'error' });
           return;
       }
+
+      setNotification({ message: "Validando chave com o Google...", type: 'loading' });
       
-      // Salva a chave e fecha o modal
-      localStorage.setItem('cv_custom_api_key', key);
-      setShowApiKeyModal(false);
-      setManualKeyInput('');
-      
-      // Tenta novamente com o arquivo pendente
-      if (pendingFile) {
-          setNotification({ message: "Tentando novamente com a nova chave...", type: 'loading' });
-          processFile(pendingFile);
-          setPendingFile(null);
+      try {
+          // Validação Real da Chave (Teste de Conexão)
+          const ai = new GoogleGenAI({ apiKey: key });
+          await ai.models.generateContent({
+              model: 'gemini-1.5-flash',
+              contents: { parts: [{ text: 'ping' }] }
+          });
+
+          // Se passar, salva e prossegue
+          localStorage.setItem('cv_custom_api_key', key);
+          setShowApiKeyModal(false);
+          setManualKeyInput('');
+          setNotification({ message: "Chave validada com sucesso!", type: 'success' });
+          
+          // Tenta novamente com o arquivo pendente
+          if (pendingFile) {
+              setTimeout(() => {
+                  setNotification({ message: "Retomando análise do currículo...", type: 'loading' });
+                  processFile(pendingFile);
+                  setPendingFile(null);
+              }, 1000);
+          }
+      } catch (error: any) {
+          console.error("Erro na validação da chave manual:", error);
+          let errorMsg = "A chave inserida não funcionou. Verifique se ela está ativa no Google Cloud.";
+          
+          if (error.message?.includes("API_NOT_ENABLED") || error.message?.includes("403")) {
+              errorMsg = "A API 'Google Generative AI' não está habilitada nesta chave. Ative-a no Google Cloud Console.";
+          } else if (error.message?.includes("INVALID_ARGUMENT") || error.message?.includes("400")) {
+              errorMsg = "Chave inválida. Verifique se copiou corretamente.";
+          }
+
+          setNotification({ message: errorMsg, type: 'error' });
+          // Não fecha o modal para permitir correção
       }
   };
 
