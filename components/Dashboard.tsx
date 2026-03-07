@@ -345,7 +345,7 @@ const Dashboard: React.FC<{
           let errorMsg = "A chave inserida não funcionou. Verifique se ela está ativa no Google Cloud.";
           
           if (error.message?.includes("API_NOT_ENABLED") || error.message?.includes("403")) {
-              errorMsg = "A API 'Google Generative AI' não está habilitada nesta chave. Ative-a no Google Cloud Console.";
+              errorMsg = "A API 'Google Generative AI' (Generative Language API) não está habilitada nesta chave. Ative-a no Google Cloud Console.";
           } else if (error.message?.includes("INVALID_ARGUMENT") || error.message?.includes("400")) {
               errorMsg = "Chave inválida. Verifique se copiou corretamente.";
           }
@@ -549,7 +549,9 @@ const Dashboard: React.FC<{
                 </p>
                 <p className="text-stone-400 text-xs mb-4 bg-red-900/20 p-3 rounded-lg border border-red-900/30">
                     <strong className="text-red-400 block mb-1">Ação Necessária:</strong>
-                    Para que a Inteligência Artificial funcione, você precisa inserir sua chave do Google Gemini abaixo. Ela será salva apenas no seu navegador.
+                    Para que a Inteligência Artificial funcione, você precisa inserir sua chave do Google Gemini abaixo.
+                    <br/><br/>
+                    <span className="text-stone-300">Certifique-se de que a <strong>Generative Language API</strong> está ativada no seu projeto do Google Cloud.</span>
                 </p>
 
                 <div className="space-y-3">

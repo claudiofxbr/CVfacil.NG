@@ -162,7 +162,7 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
         let errorMsg = error.message;
         
         if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
-             errorMsg = "Erro 404: A API 'Google Generative AI' não está habilitada no projeto desta chave. Ative-a no Google Cloud Console.";
+             errorMsg = "Erro 404: A API 'Google Generative AI' (Generative Language API) não está habilitada no projeto desta chave. Ative-a no Google Cloud Console.";
         } else if (errorMsg.includes("400") || errorMsg.includes("API key")) {
              errorMsg = "Erro 400: Chave de API inválida.";
         }
