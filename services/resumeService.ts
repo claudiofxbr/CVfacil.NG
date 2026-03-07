@@ -130,14 +130,13 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
     console.log(`[ResumeService] Iniciando IA com chave: ${maskedKey}`);
 
     // Lista de modelos para tentar (Fallback Strategy)
-    // Prioriza o modelo mais rápido e barato (1.5 Flash), depois tenta outros
+    // Prioriza modelos estáveis e de produção
     const modelsToTry = [
-        'gemini-1.5-flash', 
-        'gemini-1.5-flash-8b', // Novo modelo leve
-        'gemini-1.5-pro', 
-        'gemini-2.0-flash-exp', 
-        'gemini-1.5-flash-latest', 
-        'gemini-pro'
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-1.0-pro', // Fallback para modelo legado estável
+        'gemini-1.5-flash-8b',
+        'gemini-2.0-flash-exp'
     ];
     
     let lastError;
@@ -176,7 +175,14 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
             console.warn(`[ResumeService] Falha com modelo ${modelName}:`, error);
             lastError = error;
             
-            // Verifica se o erro NÃO é 404
+            // Verifica se o erro contém indicação explícita de API não habilitada
+            if (error.message?.includes('User has not enabled the Gemini API') || 
+                error.message?.includes('API_NOT_ENABLED') ||
+                error.message?.includes('consumer has not enabled')) {
+                throw new Error("API_NOT_ENABLED: A API 'Google Generative AI' não está ativada no projeto desta chave. Acesse o Google Cloud Console e ative-a.");
+            }
+
+            // Verifica se o erro NÃO é 404 (Not Found)
             if (!error.message?.includes('404') && !error.message?.includes('NOT_FOUND')) {
                 allErrorsAre404 = false;
             }
@@ -191,7 +197,7 @@ export const generateResumeFromPDF = async (base64Data: string, apiKey: string):
 
     // Se todos os erros foram 404, significa que a API provavelmente não está habilitada no projeto
     if (allErrorsAre404 && lastError) {
-        throw new Error("API_NOT_ENABLED: A API 'Google Generative AI' não está ativada no projeto desta chave. Acesse o Google Cloud Console e ative-a.");
+        throw new Error("API_NOT_ENABLED: A API 'Google Generative AI' não está ativada no projeto desta chave (Erro 404 em todos os modelos). Acesse o Google Cloud Console e ative-a.");
     }
 
     throw lastError || new Error("Falha ao processar com todos os modelos de IA disponíveis. Verifique sua conexão e chave de API.");

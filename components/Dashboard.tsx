@@ -35,6 +35,11 @@ const Dashboard: React.FC<{
   // Referência para Importação de Arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Estados para Recuperação de Falha de API (Robustez Hostinger)
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [manualKeyInput, setManualKeyInput] = useState('');
+
   // Carregar dados salvos ao montar o componente
   useEffect(() => {
     loadResumes();
@@ -298,10 +303,26 @@ const Dashboard: React.FC<{
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
+  const handleRetryWithKey = () => {
+      if (!manualKeyInput.trim()) {
+          setNotification({ message: "Por favor, insira uma chave válida.", type: 'error' });
+          return;
+      }
+      
+      // Salva a chave e fecha o modal
+      localStorage.setItem('cv_custom_api_key', manualKeyInput.trim());
+      setShowApiKeyModal(false);
+      setManualKeyInput('');
+      
+      // Tenta novamente com o arquivo pendente
+      if (pendingFile) {
+          setNotification({ message: "Tentando novamente com a nova chave...", type: 'loading' });
+          processFile(pendingFile);
+          setPendingFile(null);
+      }
+  };
 
+  const processFile = async (file: File) => {
       if (file.type !== 'application/pdf') {
           setNotification({ message: "Formato inválido. Apenas arquivos PDF são permitidos.", type: 'error' });
           return;
@@ -339,9 +360,6 @@ const Dashboard: React.FC<{
           });
 
           // LÓGICA ROBUSTA DE RECUPERAÇÃO DE CHAVE
-          // 1. Tenta LocalStorage (definido pelo usuário nas Configurações)
-          // 2. Tenta Variável de Ambiente (NEXT_PUBLIC_...)
-          // 3. Tenta Variável de Ambiente Legada (API_KEY)
           apiKey = localStorage.getItem('cv_custom_api_key');
           
           if (!apiKey) {
@@ -352,16 +370,12 @@ const Dashboard: React.FC<{
           console.log("Debug API Key Source:", apiKey ? (localStorage.getItem('cv_custom_api_key') ? "Manual (LocalStorage)" : "Ambiente") : "Nenhuma");
 
           if (!apiKey) {
-             // Se estiver no ambiente do AI Studio, tenta abrir o seletor
              if (window.aistudio) {
                 await window.aistudio.openSelectKey();
-                // Tenta pegar novamente (não garantido, mas o usuário pode tentar de novo)
              } 
              throw new Error("Chave de API não encontrada. Vá em Configurações e insira sua chave manualmente.");
           }
 
-          // Chama o serviço centralizado (com fallback de modelos)
-          // Importado dinamicamente para evitar conflitos de SSR se necessário, mas aqui é client-side
           const { generateResumeFromPDF } = await import('../services/resumeService');
           const parsedData = await generateResumeFromPDF(base64Data, apiKey);
 
@@ -427,24 +441,29 @@ const Dashboard: React.FC<{
           setUploadProgress(0);
           console.error("Erro na importação:", error);
           
-          // Debug da chave usada no momento do erro
           const maskedKey = apiKey ? (apiKey.length > 10 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "Inválida") : "Nenhuma";
           console.error(`[Dashboard] Chave usada na falha: ${maskedKey} (Origem: ${localStorage.getItem('cv_custom_api_key') ? "Manual" : "Ambiente"})`);
 
           let errorMsg = error.message || "Erro ao processar o arquivo.";
+          let isApiCriticalError = false;
           
-          // Tratamento de erros conhecidos com mensagens amigáveis
           if (errorMsg.includes("API Key") || errorMsg.includes("Chave de API")) {
-              errorMsg = "Chave de API inválida ou não configurada. Vá em Configurações > Conexões API e insira sua chave.";
+              errorMsg = "Chave de API inválida ou não configurada.";
+              isApiCriticalError = true;
           }
-          else if (errorMsg.includes("API_NOT_ENABLED") || errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
-              errorMsg = "ERRO DE CONFIGURAÇÃO: A API do Google não está ativa na chave do servidor. Vá em 'Configurações' e insira uma chave válida manualmente.";
+          else if (errorMsg.includes("API_NOT_ENABLED") || errorMsg.includes("User has not enabled") || errorMsg.includes("consumer has not enabled")) {
+              errorMsg = "A API 'Google Generative AI' não está ativada na sua chave.";
+              isApiCriticalError = true;
+          }
+          else if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
+              errorMsg = "Modelo de IA indisponível ou API desativada.";
+              isApiCriticalError = true;
           }
           else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
               errorMsg = "Limite de uso da API excedido (Quota). Tente novamente em alguns minutos.";
           }
           else if (errorMsg.includes("400") || errorMsg.includes("INVALID_ARGUMENT")) {
-              errorMsg = "A IA não conseguiu processar este PDF. Tente um arquivo diferente ou verifique se é um PDF de texto selecionável.";
+              errorMsg = "A IA não conseguiu processar este PDF. Tente um arquivo diferente.";
           }
           else if (errorMsg.includes("fetch") || errorMsg.includes("network")) {
               errorMsg = "Erro de conexão. Verifique sua internet e tente novamente.";
@@ -454,8 +473,20 @@ const Dashboard: React.FC<{
           }
           
           setNotification({ message: errorMsg, type: 'error' });
+
+          if (isApiCriticalError) {
+              setPendingFile(file);
+              setShowApiKeyModal(true);
+          }
       } finally {
           if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+          processFile(file);
       }
   };
 
@@ -463,6 +494,62 @@ const Dashboard: React.FC<{
   return (
     <div className="p-6 md:p-8 lg:p-12 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-500 relative">
       
+      {/* Modal de Recuperação de Chave API (Robustez Hostinger) */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-[#1a0f0f] border border-red-900/50 rounded-2xl w-full max-w-md p-6 shadow-[0_0_50px_rgba(220,38,38,0.2)]">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                        <span className="material-symbols-outlined">warning</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white">Falha na Conexão com IA</h3>
+                </div>
+                
+                <p className="text-stone-300 text-sm mb-4 leading-relaxed">
+                    A chave de API configurada no servidor parece estar inválida ou sem permissão (Erro 404/API Not Enabled).
+                </p>
+                <p className="text-stone-400 text-xs mb-4">
+                    Para continuar agora mesmo, insira uma chave válida abaixo. Ela será salva no seu navegador.
+                </p>
+
+                <div className="space-y-3">
+                    <input 
+                        type="text" 
+                        value={manualKeyInput}
+                        onChange={(e) => setManualKeyInput(e.target.value)}
+                        placeholder="Cole sua chave API aqui (AIzaSy...)"
+                        className="w-full bg-black/50 border border-red-900/30 rounded-lg p-3 text-white focus:border-red-500 focus:outline-none text-sm font-mono"
+                    />
+                    
+                    <div className="flex justify-between items-center">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+                            Gerar chave no Google <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                        </a>
+                    </div>
+
+                    <div className="flex gap-3 mt-4">
+                        <button 
+                            onClick={() => {
+                                setShowApiKeyModal(false);
+                                setPendingFile(null);
+                            }}
+                            className="flex-1 py-3 rounded-xl border border-stone-800 text-stone-500 font-bold hover:text-white hover:bg-stone-800 transition-all text-sm"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={handleRetryWithKey}
+                            disabled={!manualKeyInput.trim()}
+                            className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg shadow-red-600/20 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Salvar e Tentar Novamente
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Sistema de Notificação (Toast) */}
       {notification && (
         <div className={`fixed top-8 right-8 z-[100] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-5 duration-300 border backdrop-blur-md ${
