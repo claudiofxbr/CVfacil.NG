@@ -135,7 +135,7 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
 
         const ai = new GoogleGenAI({ apiKey: apiKey || "" });
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-latest',
+            model: 'gemini-2.0-flash-exp',
             contents: 'Olá, IA! Por favor, responda com uma frase curta confirmando que sua integração com o CVFacil.NG está funcionando e você é o modelo Pro.'
         });
 
@@ -513,7 +513,7 @@ const Settings: React.FC<SettingsProps> = ({ userInfo, onProfileUpdate }) => {
                             ) : (
                                 <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                             )}
-                            Testar Conexão IA (gemini-2.5-flash-latest)
+                            Testar Conexão IA (gemini-2.0-flash-exp)
                         </button>
                         {aiTestResult && (
                             <div className="mt-3 p-3 bg-forest-deep rounded-lg border border-forest-border">

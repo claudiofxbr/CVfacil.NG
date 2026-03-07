@@ -29,12 +29,12 @@ Certifique-se de que o Hostinger está configurado para publicar a pasta de saí
 
 ## 4. Solução de Problemas Comuns
 
-*   **Erro 404 na IA:** Verifique se a chave API está correta e se o modelo `gemini-2.5-flash-latest` está disponível para sua conta.
+*   **Erro 404 na IA:** Verifique se a chave API está correta e se o modelo `gemini-2.0-flash-exp` está disponível para sua conta.
 *   **Imagens quebradas:** Certifique-se de que as imagens estão na pasta `public/` e referenciadas com `/` no início (ex: `/logo.png`).
 *   **Página em Branco:** Verifique o console do navegador (F12) para erros de JavaScript. Geralmente indica falta de configuração de ambiente.
 
 ---
 **Resumo da Correção Aplicada:**
 1.  Alterado `next.config.mjs` para `output: 'export'` (compatibilidade total).
-2.  Atualizado modelo de IA para `gemini-2.5-flash-latest` (mais estável).
+2.  Atualizado modelo de IA para `gemini-2.0-flash-exp` (mais estável e disponível).
 3.  Adicionado este guia.

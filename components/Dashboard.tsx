@@ -340,6 +340,9 @@ const Dashboard: React.FC<{
 
           const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.API_KEY;
           
+          // Debug para Hostinger
+          console.log("Debug API Key:", apiKey ? "Configurada (Inicia com " + apiKey.substring(0, 4) + "...)" : "Não encontrada");
+
           if (!apiKey) {
              // Se estiver no ambiente do AI Studio, pode ser que a chave ainda não tenha sido selecionada
              if (window.aistudio) {
@@ -414,7 +417,7 @@ const Dashboard: React.FC<{
           };
 
           const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-latest', 
+            model: 'gemini-2.0-flash-exp', 
             contents: {
                 parts: [
                     { inlineData: { mimeType: 'application/pdf', data: base64Data } },
